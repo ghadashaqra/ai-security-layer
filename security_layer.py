@@ -1,50 +1,42 @@
-import pickle
+from config import CONFIDENCE_THRESHOLD, DANGEROUS_KEYWORDS
 
-model = pickle.load(open("model.pkl", "rb"))
-vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
+# 🔥 Mock ML model (replace later with your trained model)
+def predict_prompt(prompt):
+    prompt_lower = prompt.lower()
 
-# 🔥 Rule-based layer (VERY IMPORTANT)
-dangerous_patterns = [
-    "rm -rf",
-    "/etc/shadow",
-    "chmod 777",
-    "kill -9",
-]
-
-def rule_check(text):
-    for pattern in dangerous_patterns:
-        if pattern in text:
-            return "BLOCK ❌ (Rule-based)"
-    return None
+    # Simulated ML behavior
+    if any(word in prompt_lower for word in ["delete", "sudo", "passwd"]):
+        return "DANGEROUS", 0.9
+    else:
+        return "SAFE", 0.9
 
 
-def predict(text):
-    X = vectorizer.transform([text])
-    probs = model.predict_proba(X)[0]
-    label = model.classes_[probs.argmax()]
-    confidence = max(probs)
-    return label, confidence
+# 🔐 Hybrid Security Check
+def security_check(prompt):
+    prompt_lower = prompt.lower()
 
+    # Rule-based layer FIRST (strong protection)
+    for keyword in DANGEROUS_KEYWORDS:
+        if keyword in prompt_lower:
+            return {
+                "label": "DANGEROUS",
+                "confidence": 1.0,
+                "source": "RULE_BASED"
+            }
 
-def security_check(text):
-    # 🔥 1. Rule-based check first
-    rule_result = rule_check(text)
-    if rule_result:
-        print("RULE TRIGGERED!")
-        return rule_result
+    # ML layer
+    label, confidence = predict_prompt(prompt)
 
-    # 🔥 2. ML check
-    label, confidence = predict(text)
+    # Confidence handling
+    if confidence < CONFIDENCE_THRESHOLD:
+        return {
+            "label": "UNCERTAIN",
+            "confidence": confidence,
+            "source": "ML_LOW_CONF"
+        }
 
-    print(f"DEBUG → Label: {label}, Confidence: {confidence:.2f}")
-
-    if label == "DANGEROUS":
-        return "BLOCK ❌"
-
-    if label == "SENSITIVE":
-        return "WARN ⚠️"
-
-    if label == "SAFE":
-        if confidence < 0.4:
-            return "WARN ⚠️"
-        return "ALLOW ✅"
+    return {
+        "label": label,
+        "confidence": confidence,
+        "source": "ML"
+    }
